@@ -4,7 +4,12 @@ from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Predefined skill database
+# =====================================================================
+# CONSTANTS & PREDEFINED DATA
+# =====================================================================
+
+# Predefined skill database containing common software developer, PM, and data science skills.
+# Used to verify matches or report missing skills.
 PREDEFINED_SKILLS: List[str] = [
     "Python", "Java", "JavaScript", "React", "Node.js", "SQL", "MongoDB", "AWS", 
     "Docker", "Kubernetes", "Git", "Machine Learning", "Data Analysis", "Power BI", "Excel",
@@ -14,7 +19,7 @@ PREDEFINED_SKILLS: List[str] = [
     "Spring Boot", "Rust", "Go", "Ruby", "PHP", "Swift", "Kotlin", "Tableau", "Jira", "Agile"
 ]
 
-# Action verbs commonly suggested for resumes
+# Action verbs commonly suggested for resume enhancement to ensure impact-oriented descriptions.
 ACTION_VERBS: List[str] = [
     "achieved", "acquired", "adapted", "addressed", "administered", "advised", "allocated",
     "analyzed", "anticipated", "applied", "approved", "arranged", "assembled", "assessed",
@@ -50,7 +55,7 @@ ACTION_VERBS: List[str] = [
     "translated", "updated", "upgraded", "utilized", "validated", "verified", "wrote"
 ]
 
-# Stopwords for keyword analysis
+# Stopwords list used to filter out standard and domain-specific filler words during keyword frequency analysis.
 STOPWORDS: Set[str] = {
     'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd",
     'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers',
@@ -70,6 +75,10 @@ STOPWORDS: Set[str] = {
 }
 
 
+# =====================================================================
+# CORE ANALYSIS FUNCTIONS
+# =====================================================================
+
 def detect_skills(text: str, skills_list: List[str] = PREDEFINED_SKILLS) -> List[str]:
     """
     Detects skills from a predefined list within a given text, utilizing word boundary matching
@@ -77,15 +86,20 @@ def detect_skills(text: str, skills_list: List[str] = PREDEFINED_SKILLS) -> List
     """
     found_skills = []
     text_lower = text.lower()
+    
     for skill in skills_list:
         skill_lower = skill.lower()
-        # Escape any special characters for regex safety
+        # Escape any special characters for regex safety (like C++, C#)
         escaped_skill = re.escape(skill_lower)
         # Use boundary assertions that prevent matching within alphanumeric substrings
         # e.g., 'git' shouldn't match 'digital' or 'git-hub'
+        # Negative lookbehind and negative lookahead assert that the match is not flanked by word-like characters
         pattern = r'(?<![a-zA-Z0-9_])' + escaped_skill + r'(?![a-zA-Z0-9_])'
+        
+        # If the skill pattern matches anywhere in the lowercase text, add it to results
         if re.search(pattern, text_lower):
             found_skills.append(skill)
+            
     return found_skills
 
 
@@ -93,28 +107,29 @@ def calculate_ats_score(resume_text: str, jd_text: str) -> float:
     """
     Calculates the ATS match score using TF-IDF Vectorization and Cosine Similarity.
     """
+    # Safety check: if either input is empty, return 0.0 compatibility
     if not resume_text.strip() or not jd_text.strip():
         return 0.0
     
-    # Create the vectorizer with built-in english stop words
+    # Initialize the Scikit-learn TF-IDF Vectorizer with English stop words ignored
     vectorizer = TfidfVectorizer(stop_words='english')
     
     try:
-        # Generate the TF-IDF representation
+        # Generate the TF-IDF representation for both texts combined
         tfidf_matrix = vectorizer.fit_transform([resume_text, jd_text])
-        # Compute cosine similarity between resume (idx 0) and jd (idx 1)
+        
+        # Compute cosine similarity between resume (index 0) and job description (index 1)
         similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
         score = float(similarity[0][0]) * 100
-        # Let's normalize it slightly: Cosine similarity of text documents can naturally be low 
-        # even for high quality matches due to formatting. We apply a soft scaling factor 
-        # to make it align with realistic ATS expectations (e.g. mapping 0-1 similarity to standard 0-100 score).
-        # We'll use a moderate logarithmic booster or cap at 100. Let's do a simple boost:
-        # Boost formula: similarity * 1.5 capped at 1.0, or just keep it direct.
-        # Let's keep it direct but offer a normalized score to ensure it is recruiter-friendly.
-        # Let's do: normalized_score = min(100.0, score * 1.3) to represent a reasonable score.
+        
+        # Recruiter-friendly Normalization: Cosine similarity of unstructured documents can naturally
+        # be quite low. We apply a soft booster factor of 1.35 (capped at 100) to translate this
+        # similarity index into a realistic ATS score expectations.
         normalized_score = min(100.0, score * 1.35)
         return round(normalized_score, 1)
+        
     except Exception:
+        # Fallback in case vectorization fails (e.g., lack of vocabulary overlap)
         return 0.0
 
 
@@ -122,9 +137,16 @@ def check_contact_info(text: str) -> Dict[str, bool]:
     """
     Checks if common contact details (email, phone, LinkedIn, GitHub) are present in the resume text.
     """
+    # Regex pattern to match standard email addresses
     has_email = bool(re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', text))
+    
+    # Regex pattern to match general telephone and mobile formatting rules
     has_phone = bool(re.search(r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,4}\)?[-.\s]?\d{3}[-.\s]?\d{4,6}', text))
+    
+    # Check for presence of LinkedIn handle patterns
     has_linkedin = bool(re.search(r'linkedin\.com/in/[a-zA-Z0-9_-]+', text, re.IGNORECASE))
+    
+    # Check for presence of GitHub profile links
     has_github = bool(re.search(r'github\.com/[a-zA-Z0-9_-]+', text, re.IGNORECASE))
     
     return {
@@ -139,19 +161,20 @@ def extract_missing_keywords(resume_text: str, jd_text: str) -> List[str]:
     """
     Extracts high-frequency keywords from the job description that are missing in the resume.
     """
+    # Tokenize the resume and job description to find individual alphabetical words of 3+ letters
     resume_words = set(re.findall(r'\b[a-z]{3,}\b', resume_text.lower()))
     jd_words = re.findall(r'\b[a-z]{3,}\b', jd_text.lower())
     
-    # Filter stopwords
+    # Filter stopwords and common generic terms out of the Job Description words
     filtered_jd_words = [w for w in jd_words if w not in STOPWORDS]
     
-    # Frequency count
+    # Frequency count of remaining words
     word_counts = Counter(filtered_jd_words)
     
-    # Get top 20 keywords from JD
+    # Retrieve the top 25 most frequent terms in the job description
     top_jd_keywords = [item[0] for item in word_counts.most_common(25)]
     
-    # Identify which ones are not in the resume
+    # Identify which of these top JD keywords are missing in the user's resume
     missing_keywords = [w for w in top_jd_keywords if w not in resume_words]
     return missing_keywords
 
@@ -162,10 +185,13 @@ def detect_action_verbs(text: str) -> List[str]:
     """
     found_verbs = []
     text_lower = text.lower()
+    
+    # Match each word in the action verb list against boundaries in lowercase text
     for verb in ACTION_VERBS:
         pattern = r'\b' + re.escape(verb) + r'\b'
         if re.search(pattern, text_lower):
             found_verbs.append(verb)
+            
     return found_verbs
 
 
@@ -173,23 +199,27 @@ def analyze_resume(resume_text: str, jd_text: str) -> Dict[str, Any]:
     """
     Combines parsing, math vector similarity, and keyword processing to run full analysis.
     """
-    # 1. Statistics
+    # 1. Calculate general resume content statistics
     word_count = len(resume_text.split())
     char_count = len(resume_text)
+    # Estimate reading duration based on average human speed of 200 words per minute
     reading_time = max(1, round(word_count / 200))
     
-    # 2. Skill Detection
+    # 2. Skill Detection & Set operations for mapping gaps
     resume_skills = detect_skills(resume_text)
     jd_skills = detect_skills(jd_text)
     
+    # Intersection = matching skills
     matching_skills = sorted(list(set(resume_skills) & set(jd_skills)))
+    # Set difference (JD - Resume) = missing skills that are required
     missing_skills = sorted(list(set(jd_skills) - set(resume_skills)))
+    # Set difference (Resume - JD) = extra skills presented on resume
     additional_skills = sorted(list(set(resume_skills) - set(jd_skills)))
     
-    # 3. ATS Score
+    # 3. Compute Vector ATS Compatibility score
     ats_score = calculate_ats_score(resume_text, jd_text)
     
-    # 4. Strength Level
+    # 4. Map ATS score to categorical strength labels
     if ats_score <= 40:
         strength = "Weak"
     elif ats_score <= 70:
@@ -199,16 +229,16 @@ def analyze_resume(resume_text: str, jd_text: str) -> Dict[str, Any]:
     else:
         strength = "Excellent"
         
-    # 5. Contact info check
+    # 5. Check if candidate provided contact details (recruitment compliance scan)
     contact_info = check_contact_info(resume_text)
     
-    # 6. Action Verbs
+    # 6. Check for strong verbs to analyze quality of description
     verbs_used = detect_action_verbs(resume_text)
     
-    # 7. Keywords Missing
+    # 7. Identify top missing high-frequency keywords
     missing_keywords = extract_missing_keywords(resume_text, jd_text)
     
-    # 8. Tips generation
+    # 8. Tips Generation - compile actionable guidelines based on analysis metrics
     tips = []
     if not contact_info["email"]:
         tips.append("CRITICAL: Add your email address to the resume.")
@@ -227,9 +257,11 @@ def analyze_resume(resume_text: str, jd_text: str) -> Dict[str, Any]:
     if len(missing_keywords) > 0:
         tips.append(f"OPTIMIZATION: Add these relevant terms from the JD: {', '.join(missing_keywords[:4])}.")
         
+    # If no warnings or suggestions were triggered, congratulate the user
     if not tips:
         tips.append("Great job! Your resume format and content density are strong. Make sure to keep updating achievements with quantitative results.")
         
+    # Compile final structured dictionary output
     return {
         "word_count": word_count,
         "char_count": char_count,
@@ -246,3 +278,4 @@ def analyze_resume(resume_text: str, jd_text: str) -> Dict[str, Any]:
         "missing_keywords": missing_keywords,
         "tips": tips
     }
+

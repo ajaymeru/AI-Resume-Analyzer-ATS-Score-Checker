@@ -5,22 +5,22 @@ from analyzer import analyze_resume, PREDEFINED_SKILLS
 from report_generator import generate_pdf_report
 import re
 
-# Set page configurations
+# =====================================================================
+# PAGE & THEMING CONFIGURATION
+# =====================================================================
+
+# Set page configurations (Title, browser tab icon, layout behavior)
 st.set_page_config(
     page_title="AI Resume Analyzer & ATS Score Checker",
     layout="wide"
 )
 
-# ----------------------------------------------------
-# Premium Styling & CSS Injections
-# ----------------------------------------------------
-
-# Custom CSS for modern glassmorphism UI & custom typography
+# Custom CSS for modern glassmorphism UI, premium google font, card stylings and pill tags
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
     
-    /* Global Typography overrides */
+    /* Global Typography overrides to use Outfit font */
     html, body, [class*="css"], .stMarkdown {
         font-family: 'Outfit', sans-serif;
     }
@@ -50,9 +50,7 @@ st.markdown("""
         margin-bottom: 0;
     }
     
-
-    
-    /* Styled tag pills */
+    /* Styled tag pills for visual skill mapping indicators */
     .tag-pill {
         display: inline-block;
         padding: 6px 14px;
@@ -87,7 +85,7 @@ st.markdown("""
         background-color: #CFE2FF;
     }
     
-    /* Stats Numbers */
+    /* Stats Numbers styled for Executive Summary Card look */
     .stat-number {
         font-size: 2.2rem;
         font-weight: 700;
@@ -102,14 +100,14 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Custom divider line */
+    /* Custom divider line for layout sections */
     .divider {
         height: 1px;
         background-color: #E2E8F0;
         margin: 1.5rem 0;
     }
     
-    /* Dark Mode overrides if simulated */
+    /* Dark Mode overrides if container styling needs simulation */
     .dark-mode-container {
         background-color: #1A202C !important;
         color: #EDF2F7 !important;
@@ -118,9 +116,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ----------------------------------------------------
-# Predefined Sample Data
-# ----------------------------------------------------
+
+# =====================================================================
+# PREDEFINED SAMPLE JOB DESCRIPTIONS
+# =====================================================================
 SAMPLE_JDS = {
     "Select a Sample Job Description": "",
     "Full-Stack Software Engineer": """Requirements:
@@ -147,11 +146,17 @@ SAMPLE_JDS = {
 }
 
 
-# ----------------------------------------------------
-# HTML Keyword Highlighter Helper
-# ----------------------------------------------------
+# =====================================================================
+# UI HELPER FUNCTIONS
+# =====================================================================
+
 def highlight_keywords_in_html(text: str, keywords: list) -> str:
+    """
+    Highlights matching keywords directly inside raw text by converting it 
+    into clean, HTML-safe marked text while preserving casing.
+    """
     import html
+    # Escape special characters to prevent raw HTML execution, then swap newlines with breaks
     html_text = html.escape(text)
     html_text = html_text.replace("\n", "<br/>")
     
@@ -161,24 +166,26 @@ def highlight_keywords_in_html(text: str, keywords: list) -> str:
     for word in sorted_keywords:
         if not word.strip():
             continue
-        # Use regex to find and replace with case-insensitivity, preserving original casing!
-        # Wrap matching words in a styled mark tag while avoiding matching inside already created tags
+        # Construct pattern matching case-insensitively while ignoring existing html mark tags
         pattern = r'(<[^>]+>)|(?<![a-zA-Z0-9_])(' + re.escape(word) + r')(?![a-zA-Z0-9_])'
         
         def repl(match):
+            # If matching an HTML tag (group 1), return it unmodified
             if match.group(1):
                 return match.group(1)
+            # Otherwise, wrap the matched keyword in a styled <mark> tag
             val = match.group(2)
             return f'<mark style="background-color: #B2F5EA; color: #234E52; border-radius: 4px; padding: 1px 4px; font-weight: 500;">{val}</mark>'
             
         html_text = re.sub(pattern, repl, html_text, flags=re.IGNORECASE)
     return html_text
 
-# ----------------------------------------------------
-# Main Layout Construction
-# ----------------------------------------------------
 
-# Hero Header Banner
+# =====================================================================
+# MAIN USER INTERACTION LAYOUT
+# =====================================================================
+
+# Display Hero Header Banner
 st.markdown("""
 <div class="hero-banner">
     <h1>AI Resume Analyzer & ATS Score Checker</h1>
@@ -186,20 +193,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Main columns
+# Define two columns: Left for Inputs, Right for Results/Dashboard
 col_inputs, col_dash = st.columns([1, 1.3])
 
+# ----------------------------------------------------
+# LEFT COLUMN: User Input Controls
+# ----------------------------------------------------
 with col_inputs:
     st.subheader("📋 Step 1: Input Job Description")
     
-    # Option to select a pre-made JD
+    # Dropdown select option to load predefined sample Job Descriptions
     selected_sample_jd = st.selectbox(
         "Try a Predefined Sample Job Description:",
         options=list(SAMPLE_JDS.keys())
     )
     
+    # Fetch content text from sample selection
     default_jd_text = SAMPLE_JDS[selected_sample_jd] if selected_sample_jd != "Select a Sample Job Description" else ""
     
+    # Job description text area entry
     jd_input = st.text_area(
         "Paste the Target Job Description:",
         value=default_jd_text,
@@ -209,24 +221,31 @@ with col_inputs:
     
     st.subheader("📄 Step 2: Upload Resume")
     
+    # File uploader restricted to PDF format
     uploaded_file = st.file_uploader(
         "Upload Resume (PDF format only):",
         type=["pdf"]
     )
     
     resume_text = ""
+    # Process file input once uploaded
     if uploaded_file is not None:
         try:
             with st.spinner("Extracting text from PDF..."):
+                # Call helper module to parse PDF raw text
                 resume_text = extract_text_from_pdf(uploaded_file)
             st.success("Successfully extracted text from uploaded PDF!")
         except Exception as e:
             st.error(f"Error reading PDF: {e}")
     
-    # Trigger button
+    # Analyze submission button trigger
     analyze_clicked = st.button("🚀 Analyze Resume Compatibility", use_container_width=True, type="primary")
 
+# ----------------------------------------------------
+# RIGHT COLUMN: Results Dashboard Output
+# ----------------------------------------------------
 with col_dash:
+    # Handle event trigger from analyze button
     if analyze_clicked:
         if not resume_text:
             st.warning("⚠️ Please upload a PDF resume to begin.")
@@ -234,15 +253,15 @@ with col_dash:
             st.warning("⚠️ Please paste a job description to analyze against.")
         else:
             with st.spinner("Evaluating ATS score & processing skills list..."):
-                # Run NLP calculations
+                # Run the backend analyzer algorithm
                 analysis = analyze_resume(resume_text, jd_input)
                 
-            # Store calculations in session state to persist between downloads
+            # Store calculations in session state to persist data between user interactions / downloads
             st.session_state["analysis"] = analysis
             st.session_state["resume_text"] = resume_text
             st.session_state["jd_input"] = jd_input
             
-    # Check if analysis results are in state
+    # Render dashboard only if analysis calculations exist in session state
     if "analysis" in st.session_state:
         analysis = st.session_state["analysis"]
         res_text = st.session_state["resume_text"]
@@ -251,7 +270,7 @@ with col_dash:
         score = analysis["ats_score"]
         strength = analysis["strength_level"]
         
-        # Color indicator mapping
+        # Color mapping corresponding to score categorical strength levels
         color_map = {
             "Excellent": "#2F855A", # Green
             "Good": "#2B6CB0",      # Blue
@@ -261,10 +280,10 @@ with col_dash:
         badge_color = color_map.get(strength, "#718096")
         
         # ----------------------------------------------------
-        # Dashboard Panel
+        # Dashboard Panel Layout
         # ----------------------------------------------------
         
-        # 1. Executive Summary Metrics
+        # 1. Executive Summary Metrics Cards
         m_col1, m_col2, m_col3, m_col4 = st.columns(4)
         
         with m_col1:
@@ -279,12 +298,12 @@ with col_dash:
         with m_col4:
             st.metric(label="Read Time", value=f"{analysis['reading_time']} min")
             
-        # 2. Charts Section
+        # 2. Charts Visualizations Section
         st.subheader("📊 Analytical Metrics Visualizations")
         c_col1, c_col2 = st.columns(2)
         
         with c_col1:
-            # Gauge Chart
+            # Build Gauge indicator metric using Plotly
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=score,
@@ -308,7 +327,7 @@ with col_dash:
             st.plotly_chart(fig_gauge, use_container_width=True)
             
         with c_col2:
-            # Pie Chart
+            # Build Donut chart breakdown of skill match category metrics
             fig_pie = go.Figure(data=[go.Pie(
                 labels=['Matching Skills', 'Missing Skills', 'Other Skills'],
                 values=[len(analysis["matching_skills"]), len(analysis["missing_skills"]), len(analysis["additional_skills"])],
@@ -327,10 +346,11 @@ with col_dash:
             )
             st.plotly_chart(fig_pie, use_container_width=True)
             
-        # 3. Bar Chart for Missing Keywords Frequency
+        # 3. Horizontal Bar Chart for Missing Keywords Occurrences Frequency
         if analysis["missing_keywords"]:
             counts = []
             valid_kw = []
+            # Calculate occurrences of top missing keywords inside the target JD text
             for kw in analysis["missing_keywords"][:8]:
                 cnt = len(re.findall(r'\b' + re.escape(kw) + r'\b', jd_txt.lower()))
                 if cnt > 0:
@@ -357,11 +377,13 @@ with col_dash:
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
                 
-        # 4. Contact Information Scan Results
+        # 4. Contact Information Scan Compliance Grid
         st.subheader("🔍 Contact Details Scan")
         cc1, cc2, cc3, cc4 = st.columns(4)
         
         contact = analysis["contact_info"]
+        
+        # Sub-render utility displaying contact presence status block
         def display_contact_status(label: str, found: bool):
             icon = "✅" if found else "❌"
             status_text = "Found" if found else "Missing"
@@ -385,7 +407,7 @@ with col_dash:
             
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
             
-        # 5. Skill Pills Display
+        # 5. Skill Category Pills Tabs Display
         st.subheader("🛠️ Detailed Skills Mapping")
         
         tab_matching, tab_missing, tab_additional = st.tabs([
@@ -419,7 +441,7 @@ with col_dash:
                 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
-        # 6. Actionable Tips & Recommendations
+        # 6. Actionable Improvement Guidelines List
         st.subheader("💡 Actionable Recommendations")
         for tip in analysis["tips"]:
             if "CRITICAL:" in tip:
@@ -433,11 +455,11 @@ with col_dash:
                 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
-        # 7. Highlighted Keywords Resume Display
+        # 7. Highlighted Keywords Resume Display Viewer
         st.subheader("📝 Resume Keyword Highlighting Viewer")
         st.markdown("<p style='color: #718096; font-size: 0.9rem;'>Below is your resume text with identified core skills & keywords highlighted:</p>", unsafe_allow_html=True)
         
-        # Gather all terms to highlight (both matching skills and action verbs)
+        # Gather all terms to highlight (both matching skills and action verbs used)
         highlight_terms = list(set(analysis["matching_skills"] + analysis["action_verbs_used"]))
         highlighted_html = highlight_keywords_in_html(res_text, highlight_terms)
         
@@ -447,7 +469,7 @@ with col_dash:
         </div>
         """, unsafe_allow_html=True)
         
-        # 8. Download PDF Report Button (Sidebar action / bottom action)
+        # 8. Download Report Button (compiles the PDF and starts file browser download)
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         with st.spinner("Generating PDF report..."):
             pdf_data = generate_pdf_report(analysis)
@@ -460,7 +482,7 @@ with col_dash:
             use_container_width=True
         )
     else:
-        # Initial Placeholder UI before clicking analyze
+        # Initial Dashboard Placeholder displayed before user uploads files and clicks calculate
         st.markdown("""
         <div style="text-align: center; padding: 4rem 2rem; border: 2px dashed #CBD5E0; border-radius: 16px;">
             <span style="font-size: 3rem;">📊</span>
@@ -470,5 +492,6 @@ with col_dash:
             </p>
         </div>
         """, unsafe_allow_html=True)
+
 
 

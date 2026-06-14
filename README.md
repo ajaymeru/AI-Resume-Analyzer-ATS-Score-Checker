@@ -40,8 +40,7 @@ AI Resume Analyzer & ATS Score Checker/
 ├── report_generator.py     # PDF report compiler using ReportLab
 │
 ├── requirements.txt        # Python dependency specifications
-├── README.md               # User manual & project documentation
-└── prompt.md               # BRD / Requirements source prompt
+└── README.md               # User manual & project documentation
 ```
 
 ---

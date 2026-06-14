@@ -10,7 +10,7 @@ from reportlab.lib import colors
 def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str = "ATS_Analysis_Report") -> bytes:
     """
     Generates a professional PDF report containing the ATS score, skill analysis, 
-    statistics, and recommendations.
+    statistics, and recommendations using ReportLab flowables.
     
     Args:
         analysis_results: The dictionary output of analyze_resume().
@@ -19,7 +19,10 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
     Returns:
         Bytes representing the PDF document.
     """
+    # Create an in-memory byte buffer to write the generated PDF into
     buffer = io.BytesIO()
+    
+    # Initialize the SimpleDocTemplate with page layout settings
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
@@ -29,17 +32,22 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         bottomMargin=40
     )
     
+    # Retrieve the default stylesheet from ReportLab sample styles
     styles = getSampleStyleSheet()
     
-    # Define color scheme
-    primary_color = colors.HexColor("#1A365D")    # Dark Slate/Navy
+    # Define a premium color scheme matching the web dashboard aesthetics
+    primary_color = colors.HexColor("#1A365D")    # Dark Navy
     secondary_color = colors.HexColor("#2B6CB0")  # Royal Blue
     accent_color = colors.HexColor("#319795")     # Teal
-    text_color = colors.HexColor("#2D3748")       # Dark Grey
-    muted_color = colors.HexColor("#718096")      # Slate Grey
-    bg_light = colors.HexColor("#F7FAFC")         # Very light grey
+    text_color = colors.HexColor("#2D3748")       # Charcoal grey
+    muted_color = colors.HexColor("#718096")      # Slate grey
+    bg_light = colors.HexColor("#F7FAFC")         # Off-white/light grey background
     
-    # Custom Paragraph Styles
+    # ----------------------------------------------------
+    # Custom Paragraph Styles for Layout Typography
+    # ----------------------------------------------------
+    
+    # Main Report Title
     title_style = ParagraphStyle(
         'DocTitle',
         parent=styles['Heading1'],
@@ -50,6 +58,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         spaceAfter=6
     )
     
+    # Document Metadata (Generated date/time)
     meta_style = ParagraphStyle(
         'DocMeta',
         parent=styles['Normal'],
@@ -60,6 +69,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         spaceAfter=15
     )
     
+    # Section Header Titles
     section_title = ParagraphStyle(
         'SectionTitle',
         parent=styles['Heading2'],
@@ -72,6 +82,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         keepWithNext=True
     )
     
+    # Generic Body Text
     body_style = ParagraphStyle(
         'DocBody',
         parent=styles['BodyText'],
@@ -82,12 +93,14 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         spaceAfter=6
     )
     
+    # Bolded Body Text
     bold_body_style = ParagraphStyle(
         'DocBodyBold',
         parent=body_style,
         fontName='Helvetica-Bold'
     )
     
+    # Custom Bullet Points Style
     bullet_style = ParagraphStyle(
         'DocBullet',
         parent=styles['Normal'],
@@ -100,6 +113,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         spaceAfter=4
     )
     
+    # Text inside standard tables
     table_text = ParagraphStyle(
         'TableText',
         parent=styles['Normal'],
@@ -109,6 +123,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         textColor=text_color
     )
     
+    # Text inside table header rows
     table_header = ParagraphStyle(
         'TableHeader',
         parent=styles['Normal'],
@@ -118,19 +133,24 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         textColor=colors.whitesmoke
     )
 
+    # List of Flowables to build the report sequence
     story = []
     
+    # ====================================================
     # 1. Header Section
+    # ====================================================
     story.append(Paragraph("AI Resume Analyzer & ATS Score Report", title_style))
     current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     story.append(Paragraph(f"Generated on: {current_date} | Evaluation Report", meta_style))
     story.append(Spacer(1, 10))
     
-    # 2. Executive Summary Box (Table representation)
+    # ====================================================
+    # 2. Executive Summary Box (A styled ReportLab Table)
+    # ====================================================
     score = analysis_results["ats_score"]
     strength = analysis_results["strength_level"]
     
-    # Color badge based on score strength
+    # Map score status level to corresponding color indicators
     if strength == "Excellent":
         score_color = colors.HexColor("#2F855A")  # Green
     elif strength == "Good":
@@ -140,6 +160,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
     else:
         score_color = colors.HexColor("#C53030")  # Red
         
+    # Table layout for metric headers and actual values
     summary_data = [
         [
             Paragraph("<b>Overall ATS Match Score</b>", bold_body_style),
@@ -155,6 +176,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         ]
     ]
     
+    # Construct the executive summary table
     summary_table = Table(summary_data, colWidths=[130, 130, 130, 130])
     summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), bg_light),
@@ -169,10 +191,13 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
     story.append(summary_table)
     story.append(Spacer(1, 15))
     
-    # 3. Contact Information Check
+    # ====================================================
+    # 3. Contact Information Check Results Table
+    # ====================================================
     story.append(Paragraph("Contact Information Scan", section_title))
     contact = analysis_results["contact_info"]
     
+    # Simple utility to format boolean status into HTML-colored strings
     def get_status_str(found: bool) -> str:
         return "<font color='#2F855A'><b>Found</b></font>" if found else "<font color='#C53030'><b>Missing</b></font>"
         
@@ -186,6 +211,8 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
             Paragraph("<b>GitHub Link</b>", table_text), Paragraph(get_status_str(contact["github"]), table_text)
         ]
     ]
+    
+    # Construct contact information table
     contact_table = Table(contact_data, colWidths=[130, 130, 130, 130])
     contact_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), bg_light),
@@ -199,9 +226,12 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
     story.append(contact_table)
     story.append(Spacer(1, 15))
     
-    # 4. Skill Gap Analysis
+    # ====================================================
+    # 4. Skill Gap Analysis Table
+    # ====================================================
     story.append(Paragraph("Skill Analysis & Gap Mapping", section_title))
     
+    # Join lists of skills into comma-separated text blocks
     matching_skills_str = ", ".join(analysis_results["matching_skills"]) if analysis_results["matching_skills"] else "None identified"
     missing_skills_str = ", ".join(analysis_results["missing_skills"]) if analysis_results["missing_skills"] else "None identified"
     additional_skills_str = ", ".join(analysis_results["additional_skills"]) if analysis_results["additional_skills"] else "None identified"
@@ -213,6 +243,7 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         [Paragraph("<b>Other Skills Found</b>", table_text), Paragraph(additional_skills_str, table_text)]
     ]
     
+    # Construct details skills breakdown table
     skills_table = Table(skills_data, colWidths=[150, 370])
     skills_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), secondary_color),
@@ -226,7 +257,9 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
     story.append(skills_table)
     story.append(Spacer(1, 15))
     
+    # ====================================================
     # 5. Missing Keywords
+    # ====================================================
     if analysis_results["missing_keywords"]:
         story.append(Paragraph("Important Keywords to Add", section_title))
         story.append(Paragraph("The following words were highly prioritized in the job description but are absent or infrequent in your resume:", body_style))
@@ -235,12 +268,18 @@ def generate_pdf_report(analysis_results: Dict[str, Any], filename_prefix: str =
         story.append(Paragraph(f"<b>Missing Keywords:</b> {keywords_str}", ParagraphStyle('KeywordsBlock', parent=body_style, textColor=accent_color)))
         story.append(Spacer(1, 15))
         
-    # 6. Tips & Recommendations
+    # ====================================================
+    # 6. Tips & Recommendations List
+    # ====================================================
     story.append(Paragraph("Key Improvement Recommendations", section_title))
     for tip in analysis_results["tips"]:
         story.append(Paragraph(f"• {tip}", bullet_style))
         
-    # Build Document
+    # ====================================================
+    # Build Document PDF Compilation
+    # ====================================================
     doc.build(story)
     
+    # Return the binary data from the memory buffer
     return buffer.getvalue()
+
