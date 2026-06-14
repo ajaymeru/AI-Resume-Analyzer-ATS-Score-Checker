@@ -8,8 +8,7 @@ import re
 # Set page configurations
 st.set_page_config(
     page_title="AI Resume Analyzer & ATS Score Checker",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 # ----------------------------------------------------
@@ -472,34 +471,4 @@ with col_dash:
         </div>
         """, unsafe_allow_html=True)
 
-# ----------------------------------------------------
-# Sidebar Configurations
-# ----------------------------------------------------
-with st.sidebar:
-    st.image("https://img.icons8.com/color/96/artificial-intelligence.png", width=80)
-    st.title("Settings & FAQ")
-    
-    st.markdown("""
-    ### About the App
-    This **AI Resume Analyzer & ATS Score Checker** parses the text from your resume PDF and compares it against the target Job Description using natural language processing (NLP).
-    
-    ### How It Works:
-    1. **TF-IDF Vectorization** counts the frequency of words across both texts.
-    2. **Cosine Similarity** evaluates the directional vector match, scoring the overall vocabulary alignment from 0 to 100.
-    3. **Regex Boundary Scans** match complex tech skills (like C++, Node.js, SQL) against a structured skill library.
-    4. **Recommendation Engine** outputs checklist feedback.
-    
-    *Built with Streamlit, Plotly, & ReportLab.*
-    """)
-    
-    # Custom Dark Mode simulator toggle for styling test
-    dark_mode_sim = st.toggle("Simulate Dark Theme")
-    if dark_mode_sim:
-        st.markdown("""
-        <style>
-            body {
-                background-color: #121824;
-                color: #EDF2F7;
-            }
-        </style>
-        """, unsafe_allow_html=True)
+
